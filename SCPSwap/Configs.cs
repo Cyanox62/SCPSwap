@@ -19,7 +19,7 @@ namespace SCPSwap
 				blacklist = new List<int>() { 10 };
 			}
 
-			allowNewScps = Plugin.Config.GetBool("swap_allow_new_scps", true);
+			allowNewScps = Plugin.Config.GetBool("swap_allow_new_scps", false);
 
 			swapTimeout = Plugin.Config.GetFloat("swap_timeout", 60f);
 			reqTimeout = Plugin.Config.GetFloat("swap_request_timeout", 20f);

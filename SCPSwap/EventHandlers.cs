@@ -107,7 +107,6 @@ namespace SCPSwap
 
 		public void OnWaitingForPlayers()
 		{
-			isRoundStarted = false;
 			allowSwaps = false;
 			Configs.ReloadConfigs();
 		}
