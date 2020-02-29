@@ -200,7 +200,7 @@ namespace SCPSwap
 												{
 													if (Configs.allowNewScps)
 													{
-														ev.Player.SetRole(role);
+														ev.Player.characterClassManager.SetPlayersClass(role, ev.Player.gameObject);
 														ev.ReturnMessage = "Could not find a player to swap with, you have been made the specified SCP.";
 														ev.Color = "green";
 														return;
