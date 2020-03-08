@@ -9,7 +9,7 @@ Allows SCP players to request to swap roles with one another at the beginning of
 Place the "SCPswap.dll" file in your Plugins folder.
 
 # Usage
-SCPs can type `.scpswap scpnumberhere` to request to swap with whatever player is playing the specified role. If that player accepts, your roles will be swapped.
+SCPs can type `.scpswap scpnumberhere` within a time period from the beginning of the round to request to swap with whatever player is playing the specified role. If that player accepts, your roles will be swapped.
 Examples: `.scpswap 173`, `.scpswap peanut`
 
 *Note: As shown above, common aliases for SCPs can be used in place of numbers. A full list of these aliases ican be found [here](https://github.com/Cyanox62/SCPSwap/wiki/SCP-Role-IDs).*
