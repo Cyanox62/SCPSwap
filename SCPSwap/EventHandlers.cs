@@ -65,16 +65,16 @@ namespace SCPSwap
 			Vector3 sPos = source.GetPosition();
 			Vector3 dPos = dest.GetPosition();
 
-			float sHealth = source.playerStats.health;
-			float dHealth = dest.playerStats.health;
+			float sHealth = source.playerStats.Health;
+			float dHealth = dest.playerStats.Health;
 
 			source.SetRole(dRole);
 			source.SetPosition(dPos);
-			source.playerStats.health = dHealth;
+			source.playerStats.Health = dHealth;
 
 			dest.SetRole(sRole);
 			dest.SetPosition(sPos);
-			dest.playerStats.health = sHealth;
+			dest.playerStats.Health = sHealth;
 
 			ongoingReqs.Remove(source);
 		}
