@@ -1,5 +1,5 @@
-﻿using EXILED;
-using EXILED.Extensions;
+﻿using Exiled.API.Features;
+using Exiled.Events.EventArgs;
 using MEC;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,12 +7,12 @@ using UnityEngine;
 
 namespace SCPSwap
 {
-	class EventHandlers
+	public sealed class EventHandlers
 	{
-		private Dictionary<ReferenceHub, ReferenceHub> ongoingReqs = new Dictionary<ReferenceHub, ReferenceHub>();
+		private Dictionary<Player, Player> ongoingReqs = new Dictionary<Player, Player>();
 
 		private List<CoroutineHandle> coroutines = new List<CoroutineHandle>();
-		private Dictionary<ReferenceHub, CoroutineHandle> reqCoroutines = new Dictionary<ReferenceHub, CoroutineHandle>();
+		private Dictionary<Player, CoroutineHandle> reqCoroutines = new Dictionary<Player, CoroutineHandle>();
 
 		private bool allowSwaps = false;
 		private bool isRoundStarted = false;
@@ -35,46 +35,50 @@ namespace SCPSwap
 			{"zombie", RoleType.Scp0492}
 		};
 
-		private IEnumerator<float> SendRequest(ReferenceHub source, ReferenceHub dest)
+		public ScpSwap plugin;
+
+		public EventHandlers(ScpSwap plugin) => this.plugin = plugin;
+
+		private IEnumerator<float> SendRequest(Player source, Player dest)
 		{
 			ongoingReqs.Add(source, dest);
-			dest.Broadcast(5, "<i>You have an SCP Swap request!\nCheck your console by pressing [`] or [~]</i>", false);
-			dest.characterClassManager.TargetConsolePrint(dest.scp079PlayerScript.connectionToClient, $"You have received a swap request from {source.nicknameSync.Network_myNickSync} who is SCP-{valid.FirstOrDefault(x => x.Value == source.GetRole()).Key}. Would you like to swap with them? Type \".scpswap yes\" to accept or \".scpswap no\" to decline.", "yellow");
-			yield return Timing.WaitForSeconds(Configs.reqTimeout);
+			dest.Broadcast(5, "<i>You have an SCP Swap request!\nCheck your console by pressing [`] or [~]</i>");
+			dest.ReferenceHub.characterClassManager.TargetConsolePrint(dest.ReferenceHub.scp079PlayerScript.connectionToClient, $"You have received a swap request from {source.ReferenceHub.nicknameSync.Network_myNickSync} who is SCP-{valid.FirstOrDefault(x => x.Value == source.Role).Key}. Would you like to swap with them? Type \".scpswap yes\" to accept or \".scpswap no\" to decline.", "yellow");
+			yield return Timing.WaitForSeconds(plugin.Config.SwapRequestTimeout);
 			TimeoutRequest(source);
 		}
 
-		private void TimeoutRequest(ReferenceHub source)
+		private void TimeoutRequest(Player source)
 		{
 			if (ongoingReqs.ContainsKey(source))
 			{
-				ReferenceHub dest = ongoingReqs[source];
-				source.characterClassManager.TargetConsolePrint(source.scp079PlayerScript.connectionToClient, "The player did not respond to your request.", "red");
-				dest.characterClassManager.TargetConsolePrint(dest.scp079PlayerScript.connectionToClient, "Your swap request has timed out.", "red");
+				Player dest = ongoingReqs[source];
+				source.ReferenceHub.characterClassManager.TargetConsolePrint(source.ReferenceHub.scp079PlayerScript.connectionToClient, "The player did not respond to your request.", "red");
+				dest.ReferenceHub.characterClassManager.TargetConsolePrint(dest.ReferenceHub.scp079PlayerScript.connectionToClient, "Your swap request has timed out.", "red");
 				ongoingReqs.Remove(source);
 			}
 		}
 
-		private void PerformSwap(ReferenceHub source, ReferenceHub dest)
+		private void PerformSwap(Player source, Player dest)
 		{
-			source.characterClassManager.TargetConsolePrint(source.scp079PlayerScript.connectionToClient, "Swap successful!", "green");
+			source.ReferenceHub.characterClassManager.TargetConsolePrint(source.ReferenceHub.scp079PlayerScript.connectionToClient, "Swap successful!", "green");
 
-			RoleType sRole = source.GetRole();
-			RoleType dRole = dest.GetRole();
+			RoleType sRole = source.Role;
+			RoleType dRole = dest.Role;
 
-			Vector3 sPos = source.GetPosition();
-			Vector3 dPos = dest.GetPosition();
+			Vector3 sPos = source.Position;
+			Vector3 dPos = dest.Position;
 
-			float sHealth = source.playerStats.Health;
-			float dHealth = dest.playerStats.Health;
+			float sHealth = source.Health;
+			float dHealth = dest.Health;
 
-			source.SetRole(dRole);
-			source.SetPosition(dPos);
-			source.playerStats.Health = dHealth;
+			source.Role = dRole;
+			source.Position = dPos;
+			source.Health = dHealth;
 
-			dest.SetRole(sRole);
-			dest.SetPosition(sPos);
-			dest.playerStats.Health = sHealth;
+			dest.Role = sRole;
+			dest.Position = sPos;
+			dest.Health = sHealth;
 
 			ongoingReqs.Remove(source);
 		}
@@ -83,7 +87,7 @@ namespace SCPSwap
 		{
 			allowSwaps = true;
 			isRoundStarted = true;
-			Timing.CallDelayed(Configs.swapTimeout, () => allowSwaps = false);
+			Timing.CallDelayed(plugin.Config.SwapTimeout, () => allowSwaps = false);
 		}
 
 		public void OnRoundRestart()
@@ -96,7 +100,7 @@ namespace SCPSwap
 			reqCoroutines.Clear();
 		}
 
-		public void OnRoundEnd()
+		public void OnRoundEnd(RoundEndedEventArgs ev)
 		{
 			isRoundStarted = false;
 			Timing.KillCoroutines(coroutines);
@@ -108,156 +112,132 @@ namespace SCPSwap
 		public void OnWaitingForPlayers()
 		{
 			allowSwaps = false;
-			Configs.ReloadConfigs();
 		}
 
-		public void OnConsoleCommand(ConsoleCommandEvent ev)
+		public void OnConsoleCommand(SendingConsoleCommandEventArgs ev)
 		{
-			string cmd = ev.Command.ToLower();
-			if (cmd.StartsWith("scpswap"))
+			ev.Allow = false;
+			if (ev.Name.ToLower().Contains("scpswap"))
 			{
-				if (isRoundStarted)
-				{
-					if (ev.Player.GetTeam() == Team.SCP)
-					{
-						if (allowSwaps)
-						{
-							string[] args = cmd.Replace("scpswap", "").Trim().Split(' ');
-							if (args.Length == 1)
-							{
-								if (args[0] == "yes")
-								{
-									ReferenceHub swap = ongoingReqs.FirstOrDefault(x => x.Value == ev.Player).Key;
-									if (swap != null)
-									{
-										PerformSwap(swap, ev.Player);
-										ev.ReturnMessage = "Swap successful!";
-										Timing.KillCoroutines(reqCoroutines[swap]);
-										reqCoroutines.Remove(swap);
-										ev.Color = "green";
-										return;
-									}
-									else
-									{
-										ev.ReturnMessage = "You do not have a swap request.";
-										return;
-									}
-								}
-								else if (args[0] == "no")
-								{
-									ReferenceHub swap = ongoingReqs.FirstOrDefault(x => x.Value == ev.Player).Key;
-									if (swap != null)
-									{
-										ev.ReturnMessage = "Swap request denied.";
-										swap.characterClassManager.TargetConsolePrint(swap.scp079PlayerScript.connectionToClient, "Your swap request has been denied.", "red");
-										Timing.KillCoroutines(reqCoroutines[swap]);
-										reqCoroutines.Remove(swap);
-										ongoingReqs.Remove(swap);
-										return;
-									}
-									else
-									{
-										ev.ReturnMessage = "You do not have a swap reqest.";
-										return;
-									}
-								}
-								else if (args[0] == "cancel")
-								{
-									if (ongoingReqs.ContainsKey(ev.Player))
-									{
-										ReferenceHub dest = ongoingReqs[ev.Player];
-										dest.characterClassManager.TargetConsolePrint(dest.scp079PlayerScript.connectionToClient, "Your swap request has been cancelled.", "red");
-										Timing.KillCoroutines(reqCoroutines[ev.Player]);
-										reqCoroutines.Remove(ev.Player);
-										ongoingReqs.Remove(ev.Player);
-										ev.ReturnMessage = "You have cancelled your swap request.";
-										return;
-									}
-									else
-									{
-										ev.ReturnMessage = "You do not have an outgoing swap request.";
-										return;
-									}
-								}
-								else if (valid.ContainsKey(args[0]))
-								{
-									if (!ongoingReqs.ContainsKey(ev.Player))
-									{
-										RoleType role = valid[args[0]];
-										if (!Configs.blacklist.Contains((int)role))
-										{
-											if (ev.Player.GetRole() != role)
-											{
-												ReferenceHub swap = Player.GetHubs().FirstOrDefault(x => role == RoleType.Scp93953 ? x.GetRole() == role || x.GetRole() == RoleType.Scp93989 : x.GetRole() == role);
-												if (swap != null)
-												{
-													reqCoroutines.Add(ev.Player, Timing.RunCoroutine(SendRequest(ev.Player, swap)));
-													ev.ReturnMessage = "Swap request sent!";
-													ev.Color = "green";
-													return;
-												}
-												else
-												{
-													if (Configs.allowNewScps)
-													{
-														ev.Player.characterClassManager.SetPlayersClass(role, ev.Player.gameObject);
-														ev.ReturnMessage = "Could not find a player to swap with, you have been made the specified SCP.";
-														ev.Color = "green";
-														return;
-													}
-													else
-													{
-														ev.ReturnMessage = "No players found to swap with.";
-														return;
-													}
-												}
-											}
-											else
-											{
-												ev.ReturnMessage = "You cannot swap with your own role.";
-												return;
-											}
-										}
-										else
-										{
-											ev.ReturnMessage = "That SCP is blacklisted.";
-											return;
-										}
-									}
-									else
-									{
-										ev.ReturnMessage = "You already have a request pending!";
-										return;
-									}
-								}
-								else
-								{
-									ev.ReturnMessage = "Invalid SCP.";
-									return;
-								}
-							}
-							else
-							{
-								ev.ReturnMessage = "USAGE: SCPSWAP [SCP NUMBER]";
-								return;
-							}
-						}
-						else
-						{
-							ev.ReturnMessage = "SCP swap period has expired.";
-							return;
-						}
-					}
-					else
-					{
-						ev.ReturnMessage = "You're not an SCP, why did you think that would work.";
-						return;
-					}
-				}
-				else
+				if (!isRoundStarted)
 				{
 					ev.ReturnMessage = "The round hasn't started yet!";
+					ev.Color = "red";
 					return;
+				}
+
+				if (!(ev.Player.Team == Team.SCP))
+				{
+					ev.ReturnMessage = "You're not an SCP, why did you think that would work.";
+					ev.Color = "red";
+					return;
+				}
+
+				if (!allowSwaps)
+				{
+					ev.ReturnMessage = "SCP swap period has expired.";
+					ev.Color = "red";
+					return;
+				}
+
+				switch (ev.Arguments.Count)
+				{
+					case 1:
+						switch (ev.Arguments[0].ToLower())
+						{
+							case "yes":
+								Player swap = ongoingReqs.FirstOrDefault(x => x.Value == ev.Player).Key;
+								if (swap != null)
+								{
+									PerformSwap(swap, ev.Player);
+									ev.ReturnMessage = "Swap successful!";
+									Timing.KillCoroutines(reqCoroutines[swap]);
+									reqCoroutines.Remove(swap);
+									ev.Color = "green";
+									return;
+								}
+								ev.ReturnMessage = "You do not have a swap request.";
+								break;
+							case "no":
+								swap = ongoingReqs.FirstOrDefault(x => x.Value == ev.Player).Key;
+								if (swap != null)
+								{
+									ev.ReturnMessage = "Swap request denied.";
+									swap.ReferenceHub.characterClassManager.TargetConsolePrint(swap.ReferenceHub.scp079PlayerScript.connectionToClient, "Your swap request has been denied.", "red");
+									Timing.KillCoroutines(reqCoroutines[swap]);
+									reqCoroutines.Remove(swap);
+									ongoingReqs.Remove(swap);
+									return;
+								}
+								ev.ReturnMessage = "You do not have a swap reqest.";
+								break;
+							case "cancel":
+								if (ongoingReqs.ContainsKey(ev.Player))
+								{
+									Player dest = ongoingReqs[ev.Player];
+									dest.ReferenceHub.characterClassManager.TargetConsolePrint(dest.ReferenceHub.scp079PlayerScript.connectionToClient, "Your swap request has been cancelled.", "red");
+									Timing.KillCoroutines(reqCoroutines[ev.Player]);
+									reqCoroutines.Remove(ev.Player);
+									ongoingReqs.Remove(ev.Player);
+									ev.ReturnMessage = "You have cancelled your swap request.";
+									return;
+								}
+								ev.ReturnMessage = "You do not have an outgoing swap request.";
+								break;
+							default:
+								if (!valid.ContainsKey(ev.Arguments[0]))
+								{
+									ev.ReturnMessage = "Invalid SCP.";
+									ev.Color = "red";
+									return;
+								}
+
+								if (ongoingReqs.ContainsKey(ev.Player))
+								{
+									ev.ReturnMessage = "You already have a request pending!";
+									ev.Color = "red";
+									return;
+								}
+
+								RoleType role = valid[ev.Arguments[0]];
+								if (plugin.Config.SwapBlacklist.Contains((int)role))
+								{
+									ev.ReturnMessage = "That SCP is blacklisted.";
+									ev.Color = "red";
+									return;
+								}
+
+								if (ev.Player.Role == role)
+								{
+									ev.ReturnMessage = "You cannot swap with your own role.";
+									ev.Color = "red";
+									return;
+								}
+
+								swap = Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
+								if (swap != null)
+								{
+									reqCoroutines.Add(ev.Player, Timing.RunCoroutine(SendRequest(ev.Player, swap)));
+									ev.ReturnMessage = "Swap request sent!";
+									ev.Color = "green";
+									return;
+								}
+								if (plugin.Config.SwapAllowNewScps)
+								{
+									ev.Player.ReferenceHub.characterClassManager.SetPlayersClass(role, ev.Player.ReferenceHub.gameObject);
+									ev.ReturnMessage = "Could not find a player to swap with, you have been made the specified SCP.";
+									ev.Color = "green";
+									return;
+								}
+								ev.ReturnMessage = "No players found to swap with.";
+								ev.Color = "red";
+								break;
+						}
+						break;
+					default:
+						ev.ReturnMessage = "USAGE: SCPSWAP [SCP NUMBER]";
+						ev.Color = "red";
+						break;
 				}
 			}
 		}
