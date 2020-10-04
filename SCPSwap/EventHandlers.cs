@@ -214,7 +214,10 @@ namespace SCPSwap
 									return;
 								}
 
-								swap = Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
+								Type npcClass = Loader.Plugins.FirstOrDefault(pl => pl.Name == "CustomNPCs")?.Assembly.GetType("NPCS.Npc");
+								var npcs = ((IEnumerable<Player>) npcClass?.GetField("List")?.GetValue(null))?.Select(npc => (Player) npcClass?.GetField("NPCPlayer")?.GetValue(npc));
+								
+								swap = npcs == null ? Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role) : Player.List.Where(p => !npcs.Any(p)).FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
 								if (swap != null)
 								{
 									reqCoroutines.Add(ev.Player, Timing.RunCoroutine(SendRequest(ev.Player, swap)));
