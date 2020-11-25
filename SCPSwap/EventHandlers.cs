@@ -94,8 +94,8 @@ namespace SCPSwap
 		{
 			// fail safe
 			isRoundStarted = false;
-			Timing.KillCoroutines(coroutines);
-			Timing.KillCoroutines(reqCoroutines.Values);
+			Timing.KillCoroutines(coroutines.ToArray());
+			Timing.KillCoroutines(reqCoroutines.Values.ToArray());
 			coroutines.Clear();
 			reqCoroutines.Clear();
 		}
@@ -103,8 +103,8 @@ namespace SCPSwap
 		public void OnRoundEnd(RoundEndedEventArgs ev)
 		{
 			isRoundStarted = false;
-			Timing.KillCoroutines(coroutines);
-			Timing.KillCoroutines(reqCoroutines.Values);
+			Timing.KillCoroutines(coroutines.ToArray());
+			Timing.KillCoroutines(reqCoroutines.Values.ToArray());
 			coroutines.Clear();
 			reqCoroutines.Clear();
 		}
@@ -116,9 +116,9 @@ namespace SCPSwap
 
 		public void OnConsoleCommand(SendingConsoleCommandEventArgs ev)
 		{
-			ev.Allow = false;
 			if (ev.Name.ToLower().Contains("scpswap"))
 			{
+				ev.Allow = false;
 				if (!isRoundStarted)
 				{
 					ev.ReturnMessage = "The round hasn't started yet!";
