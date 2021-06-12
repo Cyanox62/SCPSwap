@@ -1,8 +1,10 @@
 ﻿using Exiled.API.Features;
 using Exiled.Events.EventArgs;
+using Exiled.Loader;
 using MEC;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 namespace SCPSwap
@@ -32,7 +34,8 @@ namespace SCPSwap
 			{"049", RoleType.Scp049},
 			{"doctor", RoleType.Scp049},
 			{"0492", RoleType.Scp0492},
-			{"zombie", RoleType.Scp0492}
+			{"zombie", RoleType.Scp0492},
+			{"966", RoleType.None }
 		};
 
 		public ScpSwap plugin;
@@ -61,6 +64,8 @@ namespace SCPSwap
 
 		private void PerformSwap(Player source, Player dest)
 		{
+			bool source966 = source.SessionVariables.ContainsKey("is966") && (bool)source.SessionVariables["is966"];
+			bool dest966 = dest.SessionVariables.ContainsKey("is966") && (bool)dest.SessionVariables["is966"];
 			source.ReferenceHub.characterClassManager.TargetConsolePrint(source.ReferenceHub.scp079PlayerScript.connectionToClient, "Swap successful!", "green");
 
 			RoleType sRole = source.Role;
@@ -72,11 +77,13 @@ namespace SCPSwap
 			float sHealth = source.Health;
 			float dHealth = dest.Health;
 
-			source.Role = dRole;
+			if (!dest966) source.Role = dRole;
+			else Swap966(source);
 			source.Position = dPos;
 			source.Health = dHealth;
 
-			dest.Role = sRole;
+			if (!source966) dest.Role = sRole;
+			else Swap966(dest);
 			dest.Position = sPos;
 			dest.Health = sHealth;
 
@@ -200,6 +207,12 @@ namespace SCPSwap
 								}
 
 								RoleType role = valid[ev.Arguments[0]];
+								bool is966 = false;
+								if (ev.Player.SessionVariables.ContainsKey("is966"))
+								{
+									is966 = (bool)ev.Player.SessionVariables["is966"];
+								}
+								bool req966 = ev.Arguments[0] == "966";
 								if (plugin.Config.SwapBlacklist.Contains((int)role))
 								{
 									ev.ReturnMessage = "That SCP is blacklisted.";
@@ -207,14 +220,15 @@ namespace SCPSwap
 									return;
 								}
 
-								if (ev.Player.Role == role)
+								if (ev.Player.Role == role || (is966 && req966))
 								{
 									ev.ReturnMessage = "You cannot swap with your own role.";
 									ev.Color = "red";
 									return;
 								}
 
-								swap = Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
+								if (!req966) swap = Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
+								else swap = Player.List.FirstOrDefault(x => x.SessionVariables.ContainsKey("is966") && (bool) x.SessionVariables["is966"]);
 								if (swap != null)
 								{
 									reqCoroutines.Add(ev.Player, Timing.RunCoroutine(SendRequest(ev.Player, swap)));
@@ -224,7 +238,8 @@ namespace SCPSwap
 								}
 								if (plugin.Config.SwapAllowNewScps)
 								{
-									ev.Player.ReferenceHub.characterClassManager.SetPlayersClass(role, ev.Player.ReferenceHub.gameObject);
+									if (!req966) ev.Player.ReferenceHub.characterClassManager.SetPlayersClass(role, ev.Player.ReferenceHub.gameObject);
+									else Swap966(ev.Player);
 									ev.ReturnMessage = "Could not find a player to swap with, you have been made the specified SCP.";
 									ev.Color = "green";
 									return;
@@ -240,6 +255,13 @@ namespace SCPSwap
 						break;
 				}
 			}
+		}
+
+		public void Swap966(Player newPlayer)
+		{
+			Assembly assembly = Loader.Plugins.First(pl => pl.Name == "scp966")?.Assembly;
+			if (assembly == null) return;
+			assembly.GetType("scp966.API")?.GetMethod("Swap", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new[] { newPlayer });
 		}
 	}
 }

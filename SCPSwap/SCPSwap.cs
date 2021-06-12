@@ -2,8 +2,8 @@
 
 namespace SCPSwap
 {
-    public class ScpSwap : Plugin<Config>
-    {
+	public class ScpSwap : Plugin<Config>
+	{
 		public EventHandlers Handler { get; private set; }
 		public override string Name => nameof(ScpSwap);
 		public override string Author => "Cyanox";
