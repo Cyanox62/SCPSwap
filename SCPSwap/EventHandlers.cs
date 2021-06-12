@@ -118,7 +118,7 @@ namespace SCPSwap
 		{
 			if (ev.Name.ToLower().Contains("scpswap"))
 			{
-				ev.Allow = false;
+				ev.IsAllowed = false;
 				if (!isRoundStarted)
 				{
 					ev.ReturnMessage = "The round hasn't started yet!";
