@@ -142,6 +142,13 @@ namespace SCPSwap
 					return;
 				}
 
+				if (ev.Player.SessionVariables.ContainsKey("is966") && (bool)ev.Player.SessionVariables["is966"])
+				{
+					ev.ReturnMessage = "Due to issues regarding 966, SCP 966 is not allowed to swap.";
+					ev.Color = "red";
+					return;
+				}
+
 				if (!allowSwaps)
 				{
 					ev.ReturnMessage = "SCP swap period has expired.";
@@ -231,6 +238,14 @@ namespace SCPSwap
 
 								if (!req966) swap = Player.List.FirstOrDefault(x => role == RoleType.Scp93953 ? x.Role == role || x.Role == RoleType.Scp93989 : x.Role == role);
 								else swap = Player.List.FirstOrDefault(x => x.SessionVariables.ContainsKey("is966") && (bool) x.SessionVariables["is966"]);
+
+								if (swap.SessionVariables.ContainsKey("is966") && (bool)swap.SessionVariables["is966"])
+								{
+									ev.ReturnMessage = "Due to issues regarding 966, SCP 966 is not allowed to swap.";
+									ev.Color = "red";
+									return;
+								}
+
 								if (swap != null)
 								{
 									reqCoroutines.Add(ev.Player, Timing.RunCoroutine(SendRequest(ev.Player, swap)));
